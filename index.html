@@ -1,0 +1,2518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping Label Extractor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background-color: #fafafa;
+            color: #1a202c;
+            line-height: 1.6;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .header h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 8px;
+            letter-spacing: -0.025em;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            color: #718096;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 24px 24px 0 24px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .card-description {
+            color: #718096;
+            font-size: 0.875rem;
+        }
+
+        .card-content {
+            padding: 24px;
+        }
+
+        .detection-mode {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .mode-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 12px;
+        }
+
+        .mode-options {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .mode-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .mode-option:hover {
+            border-color: #3182ce;
+            background: #ebf8ff;
+        }
+
+        .mode-option.active {
+            border-color: #3182ce;
+            background: #ebf8ff;
+            box-shadow: 0 0 0 1px #3182ce;
+        }
+
+        .mode-option input[type="radio"] {
+            margin: 0;
+        }
+
+        .mode-info {
+            flex: 1;
+        }
+
+        .mode-name {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .mode-desc {
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        .upload-area {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f7fafc;
+        }
+
+        .upload-area:hover {
+            border-color: #3182ce;
+            background: #ebf8ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #3182ce;
+            background: #ebf8ff;
+            transform: scale(1.01);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+
+        .upload-text {
+            font-size: 1.125rem;
+            font-weight: 500;
+            color: #4a5568;
+            margin-bottom: 8px;
+        }
+
+        .upload-subtext {
+            color: #718096;
+            font-size: 0.875rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            margin: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: #3182ce;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2c5aa0;
+        }
+
+        .btn-secondary {
+            background: #edf2f7;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .progress-container {
+            margin: 24px 0;
+            display: none;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+            color: #4a5568;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #edf2f7;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #3182ce;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .alert {
+            margin: 24px 0;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .alert.success {
+            background: #f0fff4;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .alert.error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .alert.info {
+            background: #ebf8ff;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            margin: 24px 0;
+        }
+
+        @media (min-width: 768px) {
+            .preview-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .preview-card {
+            display: none;
+        }
+
+        .preview-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 16px;
+        }
+
+        .preview-canvas {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .preview-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+
+        .results {
+            display: none;
+            text-align: center;
+        }
+
+        .results-text {
+            color: #718096;
+            font-size: 0.875rem;
+            margin-top: 16px;
+        }
+
+        .icon {
+            margin-right: 8px;
+        }
+
+        .detection-info {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            font-size: 0.875rem;
+            color: #4a5568;
+            display: none;
+        }
+
+        @media (max-width: 640px) {
+            .header h1 {
+                font-size: 1.875rem;
+            }
+
+            .header p {
+                font-size: 1rem;
+            }
+
+            .card-content {
+                padding: 16px;
+            }
+
+            .upload-area {
+                padding: 32px 16px;
+            }
+
+            .mode-options {
+                flex-direction: column;
+            }
+
+            .mode-option {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 Shipping Label Extractor</h1>
+            <p>Choose your detection mode and upload a PDF retail return label to automatically extract shipping labels
+                for printing on 4x6 label printers</p>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Detection Mode</div>
+                <div class="card-description">Choose the best detection algorithm for your label type</div>
+            </div>
+            <div class="card-content">
+                <div class="detection-mode">
+                    <div class="mode-title">Select Detection Method:</div>
+                    <div class="mode-options">
+                        <label class="mode-option active" for="amazonMode">
+                            <input type="radio" id="amazonMode" name="detectionMode" value="amazon" checked>
+                            <div class="mode-info">
+                                <div class="mode-name">🟠 Amazon Optimized</div>
+                                <div class="mode-desc">Best for Amazon return labels with dotted borders and 2:3 ratio
+                                </div>
+                            </div>
+                        </label>
+
+                        <label class="mode-option" for="universalMode">
+                            <input type="radio" id="universalMode" name="detectionMode" value="universal">
+                            <div class="mode-info">
+                                <div class="mode-name">🌐 Universal Detection <span
+                                        style="color: #718096; font-size: 0.8em;">(experimental)</span></div>
+                                <div class="mode-desc">Works with UPS, FedEx, USPS, and other carriers (any aspect
+                                    ratio)</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Upload PDF Document</div>
+                <div class="card-description">Select or drag and drop a PDF file containing a shipping label</div>
+            </div>
+            <div class="card-content">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Drop your PDF here or click to browse</div>
+                    <div class="upload-subtext">Supports PDF files up to 10MB</div>
+                </div>
+
+                <input type="file" id="fileInput" accept=".pdf" />
+
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-label">
+                        <span>Processing...</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+
+                <div class="alert" id="status"></div>
+
+                <div class="detection-info" id="detectionInfo">
+                    <strong>Detection Results:</strong>
+                    <div id="detectionDetails"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="preview-grid" id="previewArea">
+            <div class="card preview-card" id="originalPreview">
+                <div class="card-content">
+                    <div class="preview-title">Original PDF</div>
+                    <div class="preview-container">
+                        <canvas id="originalCanvas" class="preview-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card preview-card" id="labelPreview">
+                <div class="card-content">
+                    <div class="preview-title">Detected Label</div>
+                    <div class="preview-container">
+                        <canvas id="labelCanvas" class="preview-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card results" id="results">
+            <div class="card-content">
+                <button class="btn btn-primary" id="downloadBtn"
+                    onclick="window.labelExtractor?.downloadExtractedLabel()">
+                    <span class="icon">📥</span>
+                    Download Shipping Label
+                </button>
+                <button class="btn btn-secondary" id="printBtn" onclick="window.labelExtractor?.printExtractedLabel()">
+                    <span class="icon">🖨️</span>
+                    Print Label
+                </button>
+                <p class="results-text">
+                    Labels are automatically optimized for printing
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        class DualModeShippingLabelExtractor {
+            constructor() {
+                this.setupEventListeners();
+                this.extractedLabelData = null;
+                this.originalCanvas = null;
+                this.detectionMode = 'amazon'; // Default mode
+            }
+
+            setupEventListeners() {
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+
+                // Mode selection
+                const modeOptions = document.querySelectorAll('input[name="detectionMode"]');
+                modeOptions.forEach(option => {
+                    option.addEventListener('change', (e) => {
+                        this.detectionMode = e.target.value;
+                        console.log('Detection mode changed to:', this.detectionMode);
+
+                        // Update visual selection
+                        document.querySelectorAll('.mode-option').forEach(opt => opt.classList.remove('active'));
+                        e.target.closest('.mode-option').classList.add('active');
+                    });
+                });
+
+                // Drag and drop events
+                uploadArea.addEventListener('click', () => fileInput.click());
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('dragover');
+                });
+                uploadArea.addEventListener('dragleave', () => {
+                    uploadArea.classList.remove('dragover');
+                });
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('dragover');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        this.processFile(files[0]);
+                    }
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.processFile(e.target.files[0]);
+                    }
+                });
+            }
+
+            showStatus(message, type = 'info') {
+                console.log(`[${type.toUpperCase()}] ${message}`);
+                const statusDiv = document.getElementById('status');
+                statusDiv.textContent = message;
+                statusDiv.className = `alert ${type}`;
+                statusDiv.style.display = 'block';
+            }
+
+            updateProgress(percent) {
+                const progressContainer = document.getElementById('progressContainer');
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                progressContainer.style.display = 'block';
+                progressFill.style.width = `${percent}%`;
+                progressText.textContent = `${percent}%`;
+            }
+
+            showDetectionInfo(method, rect, mode) {
+                const infoDiv = document.getElementById('detectionInfo');
+                const detailsDiv = document.getElementById('detectionDetails');
+
+                const ratio = (rect.width / rect.height).toFixed(2);
+                detailsDiv.innerHTML = `
+                    Mode: ${mode === 'amazon' ? '🟠 Amazon Optimized' : '🌐 Universal Detection'}<br>
+                    Method: ${method}<br>
+                    Size: ${rect.width}×${rect.height}px (ratio: ${ratio}:1)
+                `;
+                infoDiv.style.display = 'block';
+            }
+
+            async processFile(file) {
+                console.log('Processing file:', file.name, 'with mode:', this.detectionMode);
+
+                if (file.type !== 'application/pdf') {
+                    this.showStatus('Please select a PDF file.', 'error');
+                    return;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    this.showStatus('File size must be less than 10MB.', 'error');
+                    return;
+                }
+
+                try {
+                    this.showStatus('Loading PDF...', 'info');
+                    this.updateProgress(10);
+
+                    const arrayBuffer = await file.arrayBuffer();
+                    const loadingTask = pdfjsLib.getDocument({
+                        data: arrayBuffer,
+                        cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                        cMapPacked: true
+                    });
+
+                    const pdf = await loadingTask.promise;
+                    console.log('PDF loaded successfully, pages:', pdf.numPages);
+                    this.updateProgress(30);
+
+                    // Process first page
+                    const page = await pdf.getPage(1);
+
+                    this.showStatus('Rendering PDF page...', 'info');
+                    this.updateProgress(50);
+
+                    // Render page to canvas with high quality
+                    const scale = 2.0;
+                    const viewport = page.getViewport({ scale });
+
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    context.imageSmoothingEnabled = true;
+                    context.imageSmoothingQuality = 'high';
+
+                    const renderTask = page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    });
+
+                    await renderTask.promise;
+                    console.log('Page rendered successfully');
+                    this.updateProgress(70);
+
+                    // Store original canvas for extraction
+                    this.originalCanvas = canvas;
+
+                    // Show original in preview
+                    this.displayOriginalPreview(canvas);
+
+                    this.showStatus(`Detecting shipping labels using ${this.detectionMode} mode...`, 'info');
+                    this.updateProgress(80);
+
+                    // Use selected detection mode
+                    let labelData;
+                    if (this.detectionMode === 'amazon') {
+                        labelData = await this.detectAndCropShippingLabelAmazon(canvas);
+                    } else {
+                        labelData = await this.detectAndCropShippingLabelUniversal(canvas);
+                    }
+
+                    if (labelData) {
+                        console.log('Shipping label detected:', labelData);
+                        this.extractedLabelData = labelData;
+                        this.displayLabelPreview(labelData.canvas);
+                        this.showDetectionInfo(labelData.method, labelData.originalRect, this.detectionMode);
+                        this.showStatus('Shipping label extracted successfully!', 'success');
+                        document.getElementById('results').style.display = 'block';
+                    } else {
+                        this.showStatus('No shipping label detected. Try switching detection mode or use a different PDF.', 'error');
+                    }
+
+                    this.updateProgress(100);
+                    setTimeout(() => {
+                        document.getElementById('progressContainer').style.display = 'none';
+                    }, 2000);
+
+                } catch (error) {
+                    console.error('Error processing file:', error);
+                    this.showStatus('Error processing PDF. Please try a different file.', 'error');
+                    document.getElementById('progressContainer').style.display = 'none';
+                }
+            }
+
+            // ORIGINAL AMAZON DETECTION (unchanged from your working version)
+            async detectAndCropShippingLabelAmazon(canvas) {
+                console.log('Starting Amazon-optimized shipping label detection...');
+                console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+
+                try {
+                    const ctx = canvas.getContext('2d');
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    console.log('Image data extracted, pixels:', imageData.data.length / 4);
+
+                    // Convert to grayscale for edge detection
+                    console.log('Converting to grayscale...');
+                    const grayData = this.convertToGrayscale(imageData);
+                    console.log('Grayscale conversion complete');
+
+                    // Try primary algorithm first (edge density for Amazon-style labels)
+                    console.log('Trying primary detection algorithm (edge density)...');
+                    const primaryResult = await this.detectWithEdgeDensityAmazon(canvas, grayData);
+
+                    if (primaryResult && primaryResult.length > 0) {
+                        console.log('Primary algorithm found', primaryResult.length, 'rectangles');
+                        const bestRect = primaryResult.reduce((best, rect) => {
+                            const area = rect.width * rect.height;
+                            const bestArea = best.width * best.height;
+                            return area > bestArea ? rect : best;
+                        });
+                        console.log('Best rectangle from primary algorithm:', bestRect);
+                        return this.extractAndOrientLabelAmazon(canvas, bestRect);
+                    }
+
+                    // Try secondary algorithm (thin border detection)
+                    console.log('Primary algorithm failed, trying secondary detection (thin borders)...');
+                    const secondaryResult = await this.detectWithThinBordersAmazon(canvas, grayData);
+
+                    if (secondaryResult) {
+                        console.log('Secondary algorithm found rectangle:', secondaryResult);
+                        return this.extractAndOrientLabelAmazon(canvas, secondaryResult);
+                    }
+
+                    // Fallback to simple rectangle
+                    console.log('Both algorithms failed, using fallback detection...');
+                    const fallbackRect = this.findFallbackRectangleAmazon(canvas);
+                    if (fallbackRect) {
+                        console.log('Fallback rectangle found:', fallbackRect);
+                        return this.extractAndOrientLabelAmazon(canvas, fallbackRect);
+                    }
+
+                    return null;
+
+                } catch (error) {
+                    console.error('Error in detectAndCropShippingLabelAmazon:', error);
+                    const fallbackRect = this.findFallbackRectangleAmazon(canvas);
+                    if (fallbackRect) {
+                        return this.extractAndOrientLabelAmazon(canvas, fallbackRect);
+                    }
+                    return null;
+                }
+            }
+
+            async detectWithEdgeDensityAmazon(canvas, grayData) {
+                console.log('Running edge density detection...');
+
+                // Apply edge detection
+                const edges = this.detectEdges(grayData, canvas.width, canvas.height);
+
+                // Find rectangular regions
+                const rectangles = this.findRectangularRegionsAmazon(edges, canvas.width, canvas.height);
+
+                return rectangles;
+            }
+
+            findRectangularRegionsAmazon(edges, width, height) {
+                console.log('Finding rectangular regions with 2:3 aspect ratio...');
+                const rectangles = [];
+
+                // Look for areas with high edge density
+                const blockSize = 50;
+                const minEdgeDensity = 0.1;
+
+                console.log('Scanning in blocks of', blockSize, 'pixels...');
+
+                for (let y = 0; y < height - blockSize; y += blockSize) {
+                    for (let x = 0; x < width - blockSize; x += blockSize) {
+                        const edgeDensity = this.calculateEdgeDensity(edges, width, x, y, blockSize, blockSize);
+
+                        if (edgeDensity > minEdgeDensity) {
+                            // Expand this region to find full rectangle
+                            const rect = this.expandRegionAmazon(edges, width, height, x, y, blockSize);
+                            if (rect && rect.width > width * 0.15 && rect.height > height * 0.15) {
+                                // Clean the rectangle to remove bottom text before aspect ratio refinement
+                                const cleanedRect = this.removeTopAndBottomTextAreaAmazon(rect, edges, width, height);
+                                if (cleanedRect) {
+                                    // Refine rectangle to match 2:3 aspect ratio
+                                    const refinedRect = this.refineToAspectRatioAmazon(cleanedRect, width, height);
+                                    if (refinedRect) {
+                                        rectangles.push(refinedRect);
+                                        console.log('Found cleaned rectangle with 2:3 ratio:', refinedRect, 'edge density:', edgeDensity.toFixed(3));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Remove overlapping rectangles, keep largest
+                const filtered = this.filterOverlappingRectanglesAmazon(rectangles);
+                console.log('Filtered to', filtered.length, 'non-overlapping rectangles');
+
+                return filtered;
+            }
+
+            async detectWithThinBordersAmazon(canvas, grayData) {
+                console.log('Running thin border detection...');
+
+                const width = canvas.width;
+                const height = canvas.height;
+
+                // Look for thin solid lines that form rectangles
+                const horizontalLines = this.detectHorizontalLinesAmazon(grayData, width, height);
+                const verticalLines = this.detectVerticalLinesAmazon(grayData, width, height);
+
+                console.log('Found', horizontalLines.length, 'horizontal lines and', verticalLines.length, 'vertical lines');
+
+                if (horizontalLines.length < 2 || verticalLines.length < 2) {
+                    console.log('Not enough lines found for border detection');
+                    return null;
+                }
+
+                // Find rectangles formed by intersecting lines
+                const borderRectangles = this.findBorderRectanglesAmazon(horizontalLines, verticalLines, width, height);
+
+                if (borderRectangles.length === 0) {
+                    console.log('No border rectangles found');
+                    return null;
+                }
+
+                console.log('Found', borderRectangles.length, 'border rectangles');
+
+                // Filter and refine rectangles
+                const validRectangles = borderRectangles.filter(rect => {
+                    const area = rect.width * rect.height;
+                    const minArea = width * height * 0.05; // At least 5% of image
+                    const maxArea = width * height * 0.8;  // At most 80% of image
+                    return area >= minArea && area <= maxArea;
+                });
+
+                if (validRectangles.length === 0) {
+                    console.log('No valid border rectangles after filtering');
+                    return null;
+                }
+
+                // Find the best rectangle (largest that fits shipping label criteria)
+                const bestRect = validRectangles.reduce((best, rect) => {
+                    const area = rect.width * rect.height;
+                    const bestArea = best.width * best.height;
+                    return area > bestArea ? rect : best;
+                });
+
+                // Clean and refine the rectangle
+                const cleanedRect = this.removeTopAndBottomTextAreaAmazon(bestRect, null, width, height);
+                const refinedRect = this.refineToAspectRatioAmazon(cleanedRect, width, height);
+
+                return refinedRect;
+            }
+
+            detectHorizontalLinesAmazon(grayData, width, height) {
+                const lines = [];
+                const minLineLength = width * 0.15; // Line must be at least 15% of image width
+                const lineThreshold = 50; // Darkness threshold for line detection
+
+                for (let y = 10; y < height - 10; y += 2) { // Sample every 2 pixels
+                    let lineSegments = [];
+                    let currentSegment = null;
+
+                    for (let x = 0; x < width; x++) {
+                        const pixel = grayData[y * width + x];
+                        const isDark = pixel < lineThreshold;
+
+                        if (isDark) {
+                            if (!currentSegment) {
+                                currentSegment = { start: x, end: x };
+                            } else {
+                                currentSegment.end = x;
+                            }
+                        } else {
+                            if (currentSegment) {
+                                const length = currentSegment.end - currentSegment.start;
+                                if (length >= minLineLength) {
+                                    lineSegments.push({
+                                        y: y,
+                                        startX: currentSegment.start,
+                                        endX: currentSegment.end,
+                                        length: length
+                                    });
+                                }
+                                currentSegment = null;
+                            }
+                        }
+                    }
+
+                    // Check final segment
+                    if (currentSegment) {
+                        const length = currentSegment.end - currentSegment.start;
+                        if (length >= minLineLength) {
+                            lineSegments.push({
+                                y: y,
+                                startX: currentSegment.start,
+                                endX: currentSegment.end,
+                                length: length
+                            });
+                        }
+                    }
+
+                    lines.push(...lineSegments);
+                }
+
+                return lines;
+            }
+
+            detectVerticalLinesAmazon(grayData, width, height) {
+                const lines = [];
+                const minLineLength = height * 0.15; // Line must be at least 15% of image height
+                const lineThreshold = 50; // Darkness threshold for line detection
+
+                for (let x = 10; x < width - 10; x += 2) { // Sample every 2 pixels
+                    let lineSegments = [];
+                    let currentSegment = null;
+
+                    for (let y = 0; y < height; y++) {
+                        const pixel = grayData[y * width + x];
+                        const isDark = pixel < lineThreshold;
+
+                        if (isDark) {
+                            if (!currentSegment) {
+                                currentSegment = { start: y, end: y };
+                            } else {
+                                currentSegment.end = y;
+                            }
+                        } else {
+                            if (currentSegment) {
+                                const length = currentSegment.end - currentSegment.start;
+                                if (length >= minLineLength) {
+                                    lineSegments.push({
+                                        x: x,
+                                        startY: currentSegment.start,
+                                        endY: currentSegment.end,
+                                        length: length
+                                    });
+                                }
+                                currentSegment = null;
+                            }
+                        }
+                    }
+
+                    // Check final segment
+                    if (currentSegment) {
+                        const length = currentSegment.end - currentSegment.start;
+                        if (length >= minLineLength) {
+                            lineSegments.push({
+                                x: x,
+                                startY: currentSegment.start,
+                                endY: currentSegment.end,
+                                length: length
+                            });
+                        }
+                    }
+
+                    lines.push(...lineSegments);
+                }
+
+                return lines;
+            }
+
+            findBorderRectanglesAmazon(horizontalLines, verticalLines, width, height) {
+                const rectangles = [];
+                const tolerance = 10; // Pixel tolerance for line alignment
+
+                // Group similar horizontal lines (top and bottom of rectangles)
+                const hLineGroups = this.groupSimilarLinesAmazon(horizontalLines, 'horizontal', tolerance);
+                const vLineGroups = this.groupSimilarLinesAmazon(verticalLines, 'vertical', tolerance);
+
+                console.log('Grouped lines: H groups =', hLineGroups.length, ', V groups =', vLineGroups.length);
+
+                // Try to form rectangles from line intersections
+                for (let i = 0; i < hLineGroups.length; i++) {
+                    for (let j = i + 1; j < hLineGroups.length; j++) {
+                        const topLines = hLineGroups[i];
+                        const bottomLines = hLineGroups[j];
+
+                        // Ensure proper top/bottom ordering
+                        if (topLines[0].y >= bottomLines[0].y) continue;
+
+                        for (let k = 0; k < vLineGroups.length; k++) {
+                            for (let l = k + 1; l < vLineGroups.length; l++) {
+                                const leftLines = vLineGroups[k];
+                                const rightLines = vLineGroups[l];
+
+                                // Ensure proper left/right ordering
+                                if (leftLines[0].x >= rightLines[0].x) continue;
+
+                                // Check if these lines can form a rectangle
+                                const rect = this.validateRectangleFromLinesAmazon(topLines, bottomLines, leftLines, rightLines, tolerance);
+                                if (rect) {
+                                    rectangles.push(rect);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return rectangles;
+            }
+
+            groupSimilarLinesAmazon(lines, type, tolerance) {
+                const groups = [];
+                const used = new Set();
+
+                for (let i = 0; i < lines.length; i++) {
+                    if (used.has(i)) continue;
+
+                    const group = [lines[i]];
+                    used.add(i);
+
+                    const position = type === 'horizontal' ? lines[i].y : lines[i].x;
+
+                    for (let j = i + 1; j < lines.length; j++) {
+                        if (used.has(j)) continue;
+
+                        const otherPosition = type === 'horizontal' ? lines[j].y : lines[j].x;
+
+                        if (Math.abs(position - otherPosition) <= tolerance) {
+                            group.push(lines[j]);
+                            used.add(j);
+                        }
+                    }
+
+                    if (group.length > 0) {
+                        groups.push(group);
+                    }
+                }
+
+                return groups;
+            }
+
+            validateRectangleFromLinesAmazon(topLines, bottomLines, leftLines, rightLines, tolerance) {
+                // Find overlapping regions
+                const topMinX = Math.min(...topLines.map(l => l.startX));
+                const topMaxX = Math.max(...topLines.map(l => l.endX));
+                const bottomMinX = Math.min(...bottomLines.map(l => l.startX));
+                const bottomMaxX = Math.max(...bottomLines.map(l => l.endX));
+
+                const leftMinY = Math.min(...leftLines.map(l => l.startY));
+                const leftMaxY = Math.max(...leftLines.map(l => l.endY));
+                const rightMinY = Math.min(...rightLines.map(l => l.startY));
+                const rightMaxY = Math.max(...rightLines.map(l => l.endY));
+
+                // Check for sufficient overlap
+                const hOverlap = Math.min(topMaxX, bottomMaxX) - Math.max(topMinX, bottomMinX);
+                const vOverlap = Math.min(leftMaxY, rightMaxY) - Math.max(leftMinY, rightMinY);
+
+                if (hOverlap < 50 || vOverlap < 50) return null; // Insufficient overlap
+
+                // Calculate rectangle bounds
+                const left = Math.max(topMinX, bottomMinX, leftLines[0].x - tolerance);
+                const right = Math.min(topMaxX, bottomMaxX, rightLines[0].x + tolerance);
+                const top = Math.max(leftMinY, rightMinY, topLines[0].y - tolerance);
+                const bottom = Math.min(leftMaxY, rightMaxY, bottomLines[0].y + tolerance);
+
+                if (right <= left || bottom <= top) return null;
+
+                const width = right - left;
+                const height = bottom - top;
+
+                // Validate minimum size
+                if (width < 100 || height < 50) return null;
+
+                return {
+                    x: left,
+                    y: top,
+                    width: width,
+                    height: height
+                };
+            }
+
+            findFallbackRectangleAmazon(canvas) {
+                console.log('Using fallback rectangle detection...');
+
+                // Simple fallback: extract a reasonable portion of the document
+                // Assume label might be in center or bottom portion
+                const width = canvas.width;
+                const height = canvas.height;
+
+                // Try center area first
+                let rect = {
+                    x: Math.floor(width * 0.1),
+                    y: Math.floor(height * 0.2),
+                    width: Math.floor(width * 0.8),
+                    height: Math.floor(height * 0.6)
+                };
+
+                console.log('Fallback rectangle (center area):', rect);
+                return rect;
+            }
+
+            removeTopAndBottomTextAreaAmazon(rect, edges, canvasWidth, canvasHeight) {
+                console.log('Analyzing rectangle for top and bottom text areas:', rect);
+
+                let cleanedRect = { ...rect };
+
+                // Check for top text area
+                const topSampleHeight = Math.floor(rect.height * 0.3);
+                const gapThreshold = 0.02;
+
+                // Check for gaps in top 40% that might separate header text from label
+                for (let i = 1; i <= 5; i++) {
+                    const checkY = rect.y + (topSampleHeight * i / 5);
+                    if (checkY < rect.y + rect.height * 0.4) {
+
+                        let edgeCount = 0;
+                        let totalPixels = 0;
+
+                        for (let x = rect.x; x < rect.x + rect.width && x < canvasWidth; x++) {
+                            const idx = Math.floor(checkY) * canvasWidth + x;
+                            if (edges && idx < edges.length) {
+                                if (edges[idx] > 0) edgeCount++;
+                                totalPixels++;
+                            }
+                        }
+
+                        const lineDensity = totalPixels > 0 ? edgeCount / totalPixels : 0;
+                        console.log(`Checking top separation line at y=${Math.floor(checkY)}, density=${lineDensity.toFixed(4)}`);
+
+                        if (lineDensity < gapThreshold && totalPixels > rect.width * 0.8) {
+                            const heightReduction = checkY - rect.y;
+                            if (heightReduction < rect.height * 0.4) { // Don't crop more than 40% from top
+                                console.log('Found top separation gap, removing header text at y=', Math.floor(checkY));
+                                cleanedRect.y = Math.floor(checkY);
+                                cleanedRect.height = rect.height - heightReduction;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Then check for bottom text area
+                const sampleHeight = Math.floor(cleanedRect.height * 0.3);
+
+                for (let i = 1; i <= 5; i++) {
+                    const checkY = cleanedRect.y + cleanedRect.height - (sampleHeight * i / 5);
+                    if (checkY > cleanedRect.y + cleanedRect.height * 0.6) {
+
+                        let edgeCount = 0;
+                        let totalPixels = 0;
+
+                        for (let x = cleanedRect.x; x < cleanedRect.x + cleanedRect.width && x < canvasWidth; x++) {
+                            const idx = Math.floor(checkY) * canvasWidth + x;
+                            if (edges && idx < edges.length) {
+                                if (edges[idx] > 0) edgeCount++;
+                                totalPixels++;
+                            }
+                        }
+
+                        const lineDensity = totalPixels > 0 ? edgeCount / totalPixels : 0;
+                        console.log(`Checking bottom separation line at y=${Math.floor(checkY)}, density=${lineDensity.toFixed(4)}`);
+
+                        if (lineDensity < gapThreshold && totalPixels > cleanedRect.width * 0.8) {
+                            const newHeight = checkY - cleanedRect.y;
+                            if (newHeight > cleanedRect.height * 0.5) {
+                                console.log('Found bottom separation gap, cropping bottom text at y=', Math.floor(checkY));
+                                cleanedRect.height = Math.floor(newHeight);
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Final check: if still extremely tall after cleaning, crop more aggressively
+                const finalRatio = cleanedRect.width / cleanedRect.height;
+                if (finalRatio < 0.4) {
+                    console.log('Rectangle still too tall after cleaning (ratio:', finalRatio.toFixed(3), '), additional cropping');
+                    const additionalCrop = cleanedRect.height * 0.15; // Remove 15% more
+                    cleanedRect.y += Math.floor(additionalCrop / 2); // Remove from top
+                    cleanedRect.height -= Math.floor(additionalCrop); // Remove from height
+                }
+
+                console.log('Cleaned rectangle:', cleanedRect);
+                return cleanedRect;
+            }
+
+            refineToAspectRatioAmazon(rect, canvasWidth, canvasHeight) {
+                const targetRatio1 = 2 / 3; // width:height = 2:3 (portrait)
+                const targetRatio2 = 3 / 2; // width:height = 3:2 (landscape)
+                const currentRatio = rect.width / rect.height;
+
+                console.log('Refining rectangle - current ratio:', currentRatio.toFixed(3));
+                console.log('Target ratios: portrait=', targetRatio1.toFixed(3), 'landscape=', targetRatio2.toFixed(3));
+
+                // Determine which target ratio is closer to current ratio
+                const diff1 = Math.abs(currentRatio - targetRatio1);
+                const diff2 = Math.abs(currentRatio - targetRatio2);
+                const targetRatio = diff1 < diff2 ? targetRatio1 : targetRatio2;
+                const orientation = targetRatio === targetRatio1 ? 'portrait' : 'landscape';
+
+                console.log('Selected', orientation, 'orientation with target ratio:', targetRatio.toFixed(3));
+
+                let newRect = { ...rect };
+
+                if (currentRatio > targetRatio) {
+                    // Rectangle is too wide, reduce width
+                    const newWidth = rect.height * targetRatio;
+                    const widthReduction = rect.width - newWidth;
+                    newRect.x = rect.x + widthReduction / 2; // Center the reduction
+                    newRect.width = newWidth;
+                } else {
+                    // Rectangle is too tall, reduce height
+                    const newHeight = rect.width / targetRatio;
+                    const heightReduction = rect.height - newHeight;
+                    newRect.y = rect.y + heightReduction / 2; // Center the reduction
+                    newRect.height = newHeight;
+                }
+
+                // Ensure the refined rectangle stays within canvas bounds
+                if (newRect.x < 0) {
+                    newRect.width += newRect.x;
+                    newRect.x = 0;
+                }
+                if (newRect.y < 0) {
+                    newRect.height += newRect.y;
+                    newRect.y = 0;
+                }
+                if (newRect.x + newRect.width > canvasWidth) {
+                    newRect.width = canvasWidth - newRect.x;
+                }
+                if (newRect.y + newRect.height > canvasHeight) {
+                    newRect.height = canvasHeight - newRect.y;
+                }
+
+                // Verify the final rectangle still has reasonable size
+                if (newRect.width < canvasWidth * 0.1 || newRect.height < canvasHeight * 0.1) {
+                    console.log('Refined rectangle too small, rejecting');
+                    return null;
+                }
+
+                console.log('Refined rectangle:', newRect, 'final ratio:', (newRect.width / newRect.height).toFixed(3));
+                return newRect;
+            }
+
+            calculateEdgeDensity(edges, width, x, y, w, h) {
+                let edgeCount = 0;
+                let totalPixels = 0;
+
+                for (let dy = 0; dy < h && y + dy < edges.length / width; dy++) {
+                    for (let dx = 0; dx < w && x + dx < width; dx++) {
+                        const idx = (y + dy) * width + (x + dx);
+                        if (idx < edges.length) {
+                            if (edges[idx] > 0) edgeCount++;
+                            totalPixels++;
+                        }
+                    }
+                }
+
+                return totalPixels > 0 ? edgeCount / totalPixels : 0;
+            }
+
+            expandRegionAmazon(edges, width, height, startX, startY, initialSize) {
+                // Try to expand the region to find full rectangle bounds
+                let minX = startX, maxX = startX + initialSize;
+                let minY = startY, maxY = startY + initialSize;
+
+                // Expand in all directions while maintaining edge density
+                const minDensity = 0.05;
+
+                // Expand right
+                while (maxX < width - 10) {
+                    const density = this.calculateEdgeDensity(edges, width, maxX, minY, 10, maxY - minY);
+                    if (density < minDensity) break;
+                    maxX += 10;
+                }
+
+                // Expand left  
+                while (minX > 10) {
+                    const density = this.calculateEdgeDensity(edges, width, minX - 10, minY, 10, maxY - minY);
+                    if (density < minDensity) break;
+                    minX -= 10;
+                }
+
+                // Expand down
+                while (maxY < height - 10) {
+                    const density = this.calculateEdgeDensity(edges, width, minX, maxY, maxX - minX, 10);
+                    if (density < minDensity) break;
+                    maxY += 10;
+                }
+
+                // Expand up
+                while (minY > 10) {
+                    const density = this.calculateEdgeDensity(edges, width, minX, minY - 10, maxX - minX, 10);
+                    if (density < minDensity) break;
+                    minY -= 10;
+                }
+
+                return {
+                    x: minX,
+                    y: minY,
+                    width: maxX - minX,
+                    height: maxY - minY
+                };
+            }
+
+            filterOverlappingRectanglesAmazon(rectangles) {
+                if (rectangles.length <= 1) return rectangles;
+
+                // Sort by area (largest first)
+                rectangles.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+
+                const filtered = [];
+
+                for (const rect of rectangles) {
+                    let overlaps = false;
+
+                    for (const existing of filtered) {
+                        if (this.rectanglesOverlapAmazon(rect, existing)) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+
+                    if (!overlaps) {
+                        filtered.push(rect);
+                    }
+                }
+
+                return filtered;
+            }
+
+            rectanglesOverlapAmazon(rect1, rect2) {
+                return !(rect1.x + rect1.width < rect2.x ||
+                    rect2.x + rect2.width < rect1.x ||
+                    rect1.y + rect1.height < rect2.y ||
+                    rect2.y + rect2.height < rect1.y);
+            }
+
+            extractAndOrientLabelAmazon(originalCanvas, rect) {
+                console.log('Extracting Amazon label from rectangle:', rect);
+
+                // First, refine the rectangle to align with dotted border edges
+                const refinedRect = this.alignWithDottedBorders(originalCanvas, rect);
+                console.log('Refined rectangle to align with dotted borders:', refinedRect);
+
+                // Create canvas for extracted label
+                const labelCanvas = document.createElement('canvas');
+                const ctx = labelCanvas.getContext('2d');
+
+                // Asymmetric padding - much more negative left padding to preserve text on top edge after rotation
+                const leftPadding = -18;  // Much more negative padding to extend well beyond detected border - becomes top after rotation
+                const topPadding = 6;    // Standard top padding - becomes right after rotation
+                const rightPadding = 8;  // Standard right padding - becomes bottom after rotation
+                const bottomPadding = 2; // Reduced bottom padding - becomes left after rotation
+
+                const extractX = Math.max(0, refinedRect.x + leftPadding);
+                const extractY = Math.max(0, refinedRect.y + topPadding);
+                const extractWidth = Math.min(originalCanvas.width - extractX, refinedRect.width - leftPadding - rightPadding);
+                const extractHeight = Math.min(originalCanvas.height - extractY, refinedRect.height - topPadding - bottomPadding);
+
+                labelCanvas.width = extractWidth;
+                labelCanvas.height = extractHeight;
+
+                // Fill with white background first
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, extractWidth, extractHeight);
+
+                // Extract the region with high quality, avoiding dotted borders
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(
+                    originalCanvas,
+                    extractX, extractY, extractWidth, extractHeight,
+                    0, 0, extractWidth, extractHeight
+                );
+
+                // Determine if rotation is needed
+                const needsRotation = this.determineRotationAmazon(labelCanvas);
+
+                if (needsRotation !== 0) {
+                    console.log('Rotating Amazon label by', needsRotation, 'degrees');
+                    const rotatedResult = this.rotateCanvas(labelCanvas, needsRotation);
+                    return {
+                        canvas: rotatedResult.canvas,
+                        rotation: needsRotation,
+                        originalRect: refinedRect,
+                        method: 'Amazon edge detection + border alignment + rotation'
+                    };
+                }
+
+                return {
+                    canvas: labelCanvas,
+                    rotation: 0,
+                    originalRect: refinedRect,
+                    method: 'Amazon edge detection + border alignment'
+                };
+            }
+
+            alignWithDottedBorders(canvas, rect) {
+                console.log('Aligning rectangle with dotted borders...');
+
+                const ctx = canvas.getContext('2d');
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const grayData = this.convertToGrayscale(imageData);
+
+                let alignedRect = { ...rect };
+
+                // More aggressive search for dotted borders
+                const leftBorder = this.findLeftDottedBorderAggressive(grayData, canvas.width, canvas.height, rect);
+                const rightBorder = this.findRightDottedBorderAggressive(grayData, canvas.width, canvas.height, rect);
+                const topBorder = this.findTopDottedBorderAggressive(grayData, canvas.width, canvas.height, rect);
+                const bottomBorder = this.findBottomDottedBorderAggressive(grayData, canvas.width, canvas.height, rect);
+
+                alignedRect.x = leftBorder;
+                alignedRect.y = topBorder;
+                alignedRect.width = rightBorder - leftBorder;
+                alignedRect.height = bottomBorder - topBorder;
+
+                console.log('Border search results:');
+                console.log('  Left border:', leftBorder, '(original:', rect.x, ')');
+                console.log('  Right border:', rightBorder, '(original:', rect.x + rect.width, ')');
+                console.log('  Top border:', topBorder, '(original:', rect.y, ')');
+                console.log('  Bottom border:', bottomBorder, '(original:', rect.y + rect.height, ')');
+
+                // Ensure the aligned rectangle is valid
+                if (alignedRect.width < 100 || alignedRect.height < 100) {
+                    console.log('Aligned rectangle too small, using more conservative cropping');
+                    // Use original rectangle but crop more aggressively inward
+                    return {
+                        x: rect.x + 8,
+                        y: rect.y + 8,
+                        width: rect.width - 16,
+                        height: rect.height - 16
+                    };
+                }
+
+                console.log('Successfully aligned with dotted borders');
+                return alignedRect;
+            }
+
+            findLeftDottedBorderAggressive(grayData, width, height, rect) {
+                // Search more thoroughly for the left border with enhanced detection
+                const searchStartX = Math.max(0, rect.x - 40); // Wider search area
+                const searchEndX = Math.min(width, rect.x + 60);
+
+                // Try multiple vertical lines to find consistent dotted pattern
+                let bestBorderX = rect.x;
+                let maxDottedScore = 0;
+
+                // First pass: look for any dotted pattern
+                for (let x = searchStartX; x < searchEndX; x++) {
+                    const score = this.getDottedScoreVertical(grayData, width, height, x, rect.y, rect.height);
+                    if (score > maxDottedScore) {
+                        maxDottedScore = score;
+                        bestBorderX = x;
+                    }
+                }
+
+                // Second pass: if we found a good pattern, look for the leftmost one near it
+                if (maxDottedScore > 0.2) { // Lower threshold for left edge
+                    console.log('Initial left border candidate at x =', bestBorderX, 'score =', maxDottedScore.toFixed(3));
+
+                    // Search for leftmost dotted line near the best candidate
+                    const refinedSearchStart = Math.max(searchStartX, bestBorderX - 20);
+                    const refinedSearchEnd = Math.min(searchEndX, bestBorderX + 10);
+
+                    for (let x = refinedSearchStart; x < refinedSearchEnd; x++) {
+                        const score = this.getDottedScoreVertical(grayData, width, height, x, rect.y, rect.height);
+                        if (score > 0.2) { // Found a dotted line
+                            console.log('Found strong left dotted border at x =', x, 'score =', score.toFixed(3));
+                            return x + 8; // Move much further inward from the dotted line
+                        }
+                    }
+
+                    // Use the best candidate we found
+                    console.log('Using best left border candidate at x =', bestBorderX);
+                    return bestBorderX + 8;
+                }
+
+                // Enhanced fallback: try looking for any dark line that could be a border
+                console.log('No strong left dotted border found, trying enhanced edge detection...');
+                const fallbackBorder = this.findLeftEdgeByDarkness(grayData, width, height, rect);
+                if (fallbackBorder > rect.x) {
+                    console.log('Found left edge by darkness at x =', fallbackBorder);
+                    return fallbackBorder + 6;
+                }
+
+                // AGGRESSIVE FINAL FALLBACK: Always crop significantly inward on left edge
+                // Amazon return labels often have stubborn left borders, so we'll be very aggressive
+                const aggressiveCrop = rect.x + Math.max(15, Math.floor(rect.width * 0.03)); // At least 15px or 3% of width
+                console.log('Using AGGRESSIVE left border crop at x =', aggressiveCrop, '(+', aggressiveCrop - rect.x, 'px from original)');
+                return aggressiveCrop;
+            }
+
+            findLeftEdgeByDarkness(grayData, width, height, rect) {
+                // Look for a vertical line with higher than average darkness (potential border)
+                const searchStartX = Math.max(0, rect.x - 30);
+                const searchEndX = Math.min(width, rect.x + 40);
+
+                let bestEdgeX = rect.x;
+                let maxDarkness = 0;
+
+                for (let x = searchStartX; x < searchEndX; x++) {
+                    let totalDarkness = 0;
+                    let pixelCount = 0;
+
+                    // Sample the vertical line
+                    for (let y = rect.y + 10; y < rect.y + rect.height - 10; y += 3) {
+                        const idx = y * width + x;
+                        if (idx < grayData.length) {
+                            totalDarkness += (255 - grayData[idx]); // Higher value = darker
+                            pixelCount++;
+                        }
+                    }
+
+                    const avgDarkness = pixelCount > 0 ? totalDarkness / pixelCount : 0;
+
+                    // Look for lines that are significantly darker than average
+                    if (avgDarkness > maxDarkness && avgDarkness > 30) { // Threshold for "dark enough"
+                        maxDarkness = avgDarkness;
+                        bestEdgeX = x;
+                    }
+                }
+
+                // Only return if we found something significantly darker
+                if (maxDarkness > 50) {
+                    console.log('Found dark left edge at x =', bestEdgeX, 'darkness =', maxDarkness.toFixed(1));
+                    return bestEdgeX;
+                }
+
+                return rect.x; // No clear edge found
+            }
+
+            findRightDottedBorderAggressive(grayData, width, height, rect) {
+                const searchStartX = Math.max(0, rect.x + rect.width - 40);
+                const searchEndX = Math.min(width, rect.x + rect.width + 30);
+
+                let bestBorderX = rect.x + rect.width;
+                let maxDottedScore = 0;
+
+                for (let x = searchEndX; x >= searchStartX; x--) {
+                    const score = this.getDottedScoreVertical(grayData, width, height, x, rect.y, rect.height);
+                    if (score > maxDottedScore) {
+                        maxDottedScore = score;
+                        bestBorderX = x;
+                    }
+                }
+
+                if (maxDottedScore > 0.3) {
+                    console.log('Found strong right dotted border at x =', bestBorderX, 'score =', maxDottedScore.toFixed(3));
+                    return bestBorderX - 2; // Move slightly inward from the dotted line
+                }
+
+                console.log('No strong right dotted border found, using conservative inward crop');
+                return rect.x + rect.width - 6;
+            }
+
+            findTopDottedBorderAggressive(grayData, width, height, rect) {
+                const searchStartY = Math.max(0, rect.y - 30);
+                const searchEndY = Math.min(height, rect.y + 40);
+
+                let bestBorderY = rect.y;
+                let maxDottedScore = 0;
+
+                for (let y = searchStartY; y < searchEndY; y++) {
+                    const score = this.getDottedScoreHorizontal(grayData, width, height, y, rect.x, rect.width);
+                    if (score > maxDottedScore) {
+                        maxDottedScore = score;
+                        bestBorderY = y;
+                    }
+                }
+
+                if (maxDottedScore > 0.3) {
+                    console.log('Found strong top dotted border at y =', bestBorderY, 'score =', maxDottedScore.toFixed(3));
+                    return bestBorderY + 2; // Move slightly inward from the dotted line
+                }
+
+                console.log('No strong top dotted border found, using conservative inward crop');
+                return rect.y + 6;
+            }
+
+            findBottomDottedBorderAggressive(grayData, width, height, rect) {
+                const searchStartY = Math.max(0, rect.y + rect.height - 40);
+                const searchEndY = Math.min(height, rect.y + rect.height + 30);
+
+                let bestBorderY = rect.y + rect.height;
+                let maxDottedScore = 0;
+
+                for (let y = searchEndY; y >= searchStartY; y--) {
+                    const score = this.getDottedScoreHorizontal(grayData, width, height, y, rect.x, rect.width);
+                    if (score > maxDottedScore) {
+                        maxDottedScore = score;
+                        bestBorderY = y;
+                    }
+                }
+
+                if (maxDottedScore > 0.3) {
+                    console.log('Found strong bottom dotted border at y =', bestBorderY, 'score =', maxDottedScore.toFixed(3));
+                    return bestBorderY - 6; // Extra inward crop for bottom edge (becomes left after rotation)
+                }
+
+                console.log('No strong bottom dotted border found, using conservative inward crop');
+                return rect.y + rect.height - 10; // Slightly more aggressive fallback for bottom edge
+            }
+
+            getDottedScoreVertical(grayData, width, height, x, startY, searchHeight) {
+                const endY = Math.min(height, startY + searchHeight);
+                const pattern = [];
+                const threshold = 140; // Slightly higher threshold
+
+                // Sample every pixel for better pattern detection
+                for (let y = startY; y < endY; y++) {
+                    const idx = y * width + x;
+                    if (idx < grayData.length) {
+                        pattern.push(grayData[idx] < threshold ? 1 : 0);
+                    }
+                }
+
+                return this.calculateDottedScore(pattern);
+            }
+
+            getDottedScoreHorizontal(grayData, width, height, y, startX, searchWidth) {
+                const endX = Math.min(width, startX + searchWidth);
+                const pattern = [];
+                const threshold = 140; // Slightly higher threshold
+
+                // Sample every pixel for better pattern detection
+                for (let x = startX; x < endX; x++) {
+                    const idx = y * width + x;
+                    if (idx < grayData.length) {
+                        pattern.push(grayData[idx] < threshold ? 1 : 0);
+                    }
+                }
+
+                return this.calculateDottedScore(pattern);
+            }
+
+            calculateDottedScore(pattern) {
+                if (pattern.length < 30) return 0;
+
+                // Count runs of consecutive 1s and 0s
+                const runs = [];
+                let currentRun = { value: pattern[0], length: 1 };
+
+                for (let i = 1; i < pattern.length; i++) {
+                    if (pattern[i] === currentRun.value) {
+                        currentRun.length++;
+                    } else {
+                        runs.push(currentRun);
+                        currentRun = { value: pattern[i], length: 1 };
+                    }
+                }
+                runs.push(currentRun);
+
+                if (runs.length < 6) return 0; // Need at least several alternating segments
+
+                // Analyze run lengths for dotted pattern characteristics
+                const darkRuns = runs.filter(r => r.value === 1);
+                const lightRuns = runs.filter(r => r.value === 0);
+
+                if (darkRuns.length < 3 || lightRuns.length < 3) return 0;
+
+                // Calculate average run lengths
+                const avgDarkRun = darkRuns.reduce((sum, r) => sum + r.length, 0) / darkRuns.length;
+                const avgLightRun = lightRuns.reduce((sum, r) => sum + r.length, 0) / lightRuns.length;
+
+                // Good dotted patterns have:
+                // 1. Similar average dark and light run lengths
+                // 2. Reasonable run lengths (not too short or too long)
+                // 3. Multiple alternations
+
+                const runLengthSimilarity = 1 - Math.abs(avgDarkRun - avgLightRun) / Math.max(avgDarkRun, avgLightRun);
+                const reasonableRunLength = (avgDarkRun >= 2 && avgDarkRun <= 15 && avgLightRun >= 2 && avgLightRun <= 15) ? 1 : 0;
+                const sufficientAlternations = Math.min(runs.length / 10, 1); // More alternations = higher score
+                const darkContentRatio = darkRuns.reduce((sum, r) => sum + r.length, 0) / pattern.length;
+                const goodDarkRatio = (darkContentRatio >= 0.2 && darkContentRatio <= 0.7) ? 1 : 0;
+
+                const score = (runLengthSimilarity * 0.3) +
+                    (reasonableRunLength * 0.3) +
+                    (sufficientAlternations * 0.2) +
+                    (goodDarkRatio * 0.2);
+
+                return score;
+            }
+
+            // Remove the old methods that are no longer needed
+            isDottedBorderVertical() { return false; }
+            isDottedBorderHorizontal() { return false; }
+            isDottedPattern() { return false; }
+            findLeftDottedBorder() { return 0; }
+            findRightDottedBorder() { return 0; }
+            findTopDottedBorder() { return 0; }
+            findBottomDottedBorder() { return 0; }
+
+            determineRotationAmazon(canvas) {
+                // Analyze the label more thoroughly to determine if rotation is needed
+                const aspectRatio = canvas.width / canvas.height;
+
+                console.log('Determining rotation - aspect ratio:', aspectRatio.toFixed(3));
+
+                // If the label is significantly wider than tall, it likely needs 90° rotation
+                if (aspectRatio > 1.2) {
+                    console.log('Label is landscape (wide), suggesting 90° rotation to portrait');
+                    return 90;
+                }
+
+                // If the label is much taller than wide but should be landscape, rotate -90°
+                if (aspectRatio < 0.8) {
+                    // Check if this might be a landscape label rotated 90° clockwise
+                    // Most shipping labels should be readable without rotating your head
+                    console.log('Label is very tall, might need -90° rotation');
+                    return -90;
+                }
+
+                console.log('Label aspect ratio looks good, no rotation needed');
+                return 0;
+            }
+
+            detectEdges(grayData, width, height) {
+                console.log('Detecting edges using Sobel operator...');
+                const edges = new Uint8Array(grayData.length);
+
+                // Sobel kernels
+                const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+                const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        let gx = 0, gy = 0;
+
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const idx = (y + ky) * width + (x + kx);
+                                const kernelIdx = (ky + 1) * 3 + (kx + 1);
+                                gx += grayData[idx] * sobelX[kernelIdx];
+                                gy += grayData[idx] * sobelY[kernelIdx];
+                            }
+                        }
+
+                        const magnitude = Math.sqrt(gx * gx + gy * gy);
+                        edges[y * width + x] = magnitude > 50 ? 255 : 0;
+                    }
+                }
+
+                return edges;
+            }
+
+            // NEW UNIVERSAL DETECTION
+            async detectAndCropShippingLabelUniversal(canvas) {
+                console.log('Starting universal label detection...');
+
+                const ctx = canvas.getContext('2d');
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const grayData = this.convertToGrayscale(imageData);
+
+                // Try multiple detection methods
+                let result = null;
+
+                // Method 1: Solid border detection
+                console.log('Trying solid border detection...');
+                result = this.detectSolidBorders(canvas, grayData);
+                if (result) {
+                    result.method = 'Solid borders';
+                    return this.extractLabel(canvas, result);
+                }
+
+                // Method 2: Content density detection
+                console.log('Trying content density detection...');
+                result = this.detectByContentDensity(canvas, grayData);
+                if (result) {
+                    result.method = 'Content density';
+                    return this.extractLabel(canvas, result);
+                }
+
+                // Method 3: Whitespace analysis
+                console.log('Trying whitespace analysis...');
+                result = this.detectByWhitespace(canvas, grayData);
+                if (result) {
+                    result.method = 'Whitespace analysis';
+                    return this.extractLabel(canvas, result);
+                }
+
+                // Method 4: Fallback
+                console.log('Using fallback detection...');
+                result = this.findLargestRectangularRegion(canvas);
+                if (result) {
+                    result.method = 'Fallback detection';
+                    return this.extractLabel(canvas, result);
+                }
+
+                return null;
+            }
+
+            detectSolidBorders(canvas, grayData) {
+                const width = canvas.width;
+                const height = canvas.height;
+
+                // Find horizontal and vertical lines
+                const horizontalLines = this.findHorizontalLines(grayData, width, height);
+                const verticalLines = this.findVerticalLines(grayData, width, height);
+
+                console.log('Found', horizontalLines.length, 'horizontal and', verticalLines.length, 'vertical lines');
+
+                if (horizontalLines.length < 2 || verticalLines.length < 2) {
+                    return null;
+                }
+
+                // Find rectangles from line intersections
+                const rectangles = this.findRectanglesFromLines(horizontalLines, verticalLines, width, height);
+
+                if (rectangles.length === 0) {
+                    return null;
+                }
+
+                // Return the largest valid rectangle
+                return rectangles.reduce((largest, rect) => {
+                    const area = rect.width * rect.height;
+                    const largestArea = largest.width * largest.height;
+                    return area > largestArea ? rect : largest;
+                });
+            }
+
+            findHorizontalLines(grayData, width, height) {
+                const lines = [];
+                const minLineLength = width * 0.2;
+                const threshold = 80;
+
+                for (let y = 10; y < height - 10; y += 3) {
+                    let lineStart = -1;
+                    let darkPixels = 0;
+                    let totalPixels = 0;
+
+                    for (let x = 0; x < width; x++) {
+                        const pixel = grayData[y * width + x];
+
+                        if (pixel < threshold) {
+                            if (lineStart === -1) lineStart = x;
+                            darkPixels++;
+                        }
+                        totalPixels++;
+
+                        // Check if we've reached end of potential line
+                        if (pixel >= threshold || x === width - 1) {
+                            if (lineStart !== -1) {
+                                const lineLength = x - lineStart;
+                                const density = darkPixels / totalPixels;
+
+                                if (lineLength >= minLineLength && density > 0.3) {
+                                    lines.push({
+                                        y: y,
+                                        startX: lineStart,
+                                        endX: x,
+                                        length: lineLength
+                                    });
+                                }
+
+                                lineStart = -1;
+                                darkPixels = 0;
+                                totalPixels = 0;
+                            }
+                        }
+                    }
+                }
+
+                return lines;
+            }
+
+            findVerticalLines(grayData, width, height) {
+                const lines = [];
+                const minLineLength = height * 0.2;
+                const threshold = 80;
+
+                for (let x = 10; x < width - 10; x += 3) {
+                    let lineStart = -1;
+                    let darkPixels = 0;
+                    let totalPixels = 0;
+
+                    for (let y = 0; y < height; y++) {
+                        const pixel = grayData[y * width + x];
+
+                        if (pixel < threshold) {
+                            if (lineStart === -1) lineStart = y;
+                            darkPixels++;
+                        }
+                        totalPixels++;
+
+                        // Check if we've reached end of potential line
+                        if (pixel >= threshold || y === height - 1) {
+                            if (lineStart !== -1) {
+                                const lineLength = y - lineStart;
+                                const density = darkPixels / totalPixels;
+
+                                if (lineLength >= minLineLength && density > 0.3) {
+                                    lines.push({
+                                        x: x,
+                                        startY: lineStart,
+                                        endY: y,
+                                        length: lineLength
+                                    });
+                                }
+
+                                lineStart = -1;
+                                darkPixels = 0;
+                                totalPixels = 0;
+                            }
+                        }
+                    }
+                }
+
+                return lines;
+            }
+
+            findRectanglesFromLines(horizontalLines, verticalLines, width, height) {
+                const rectangles = [];
+                const tolerance = 20;
+
+                for (let i = 0; i < horizontalLines.length; i++) {
+                    for (let j = i + 1; j < horizontalLines.length; j++) {
+                        const topLine = horizontalLines[i];
+                        const bottomLine = horizontalLines[j];
+
+                        if (bottomLine.y - topLine.y < height * 0.1) continue;
+
+                        for (let k = 0; k < verticalLines.length; k++) {
+                            for (let l = k + 1; l < verticalLines.length; l++) {
+                                const leftLine = verticalLines[k];
+                                const rightLine = verticalLines[l];
+
+                                if (rightLine.x - leftLine.x < width * 0.1) continue;
+
+                                // Check if lines can form a rectangle
+                                const rect = this.validateRectangle(topLine, bottomLine, leftLine, rightLine, tolerance);
+                                if (rect && this.isValidLabelSize(rect, width, height)) {
+                                    rectangles.push(rect);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return rectangles;
+            }
+
+            validateRectangle(topLine, bottomLine, leftLine, rightLine, tolerance) {
+                // Check if lines overlap properly
+                const hOverlap = Math.min(topLine.endX, bottomLine.endX) - Math.max(topLine.startX, bottomLine.startX);
+                const vOverlap = Math.min(leftLine.endY, rightLine.endY) - Math.max(leftLine.startY, rightLine.startY);
+
+                if (hOverlap < 50 || vOverlap < 50) return null;
+
+                const left = Math.max(topLine.startX, bottomLine.startX);
+                const right = Math.min(topLine.endX, bottomLine.endX);
+                const top = Math.max(leftLine.startY, rightLine.startY);
+                const bottom = Math.min(leftLine.endY, rightLine.endY);
+
+                if (right <= left || bottom <= top) return null;
+
+                return {
+                    x: left,
+                    y: top,
+                    width: right - left,
+                    height: bottom - top
+                };
+            }
+
+            detectByContentDensity(canvas, grayData) {
+                const width = canvas.width;
+                const height = canvas.height;
+                const blockSize = 50;
+
+                // Find regions with high text density
+                for (let y = 0; y < height - blockSize * 4; y += blockSize) {
+                    for (let x = 0; x < width - blockSize * 4; x += blockSize) {
+
+                        // Try different rectangle sizes
+                        for (let h = blockSize * 4; h <= Math.min(height - y, blockSize * 15); h += blockSize * 2) {
+                            for (let w = blockSize * 4; w <= Math.min(width - x, blockSize * 15); w += blockSize * 2) {
+
+                                const rect = { x, y, width: w, height: h };
+
+                                if (!this.isValidLabelSize(rect, width, height)) continue;
+
+                                const density = this.calculateTextDensity(grayData, width, rect);
+
+                                if (density > 0.15 && density < 0.6) {
+                                    return rect;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            calculateTextDensity(grayData, width, rect) {
+                let textPixels = 0;
+                let totalPixels = 0;
+
+                const endX = Math.min(rect.x + rect.width, width);
+                const endY = Math.min(rect.y + rect.height, grayData.length / width);
+
+                for (let y = rect.y; y < endY; y++) {
+                    for (let x = rect.x; x < endX; x++) {
+                        const idx = y * width + x;
+                        if (idx >= grayData.length) continue;
+
+                        const pixel = grayData[idx];
+                        if (pixel < 150) textPixels++;
+                        totalPixels++;
+                    }
+                }
+
+                return totalPixels > 0 ? textPixels / totalPixels : 0;
+            }
+
+            detectByWhitespace(canvas, grayData) {
+                const width = canvas.width;
+                const height = canvas.height;
+                const blockSize = 60;
+
+                // Look for areas with white background and some content
+                for (let y = 0; y < height - blockSize * 3; y += blockSize) {
+                    for (let x = 0; x < width - blockSize * 3; x += blockSize) {
+
+                        for (let h = blockSize * 3; h <= Math.min(height - y, blockSize * 12); h += blockSize * 2) {
+                            for (let w = blockSize * 3; w <= Math.min(width - x, blockSize * 12); w += blockSize * 2) {
+
+                                const rect = { x, y, width: w, height: h };
+
+                                if (!this.isValidLabelSize(rect, width, height)) continue;
+
+                                const analysis = this.analyzeWhitespace(grayData, width, rect);
+
+                                if (analysis.isLikelyLabel) {
+                                    return rect;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            analyzeWhitespace(grayData, width, rect) {
+                let whitePixels = 0;
+                let darkPixels = 0;
+                let totalPixels = 0;
+
+                const endX = Math.min(rect.x + rect.width, width);
+                const endY = Math.min(rect.y + rect.height, grayData.length / width);
+
+                for (let y = rect.y; y < endY; y++) {
+                    for (let x = rect.x; x < endX; x++) {
+                        const idx = y * width + x;
+                        if (idx >= grayData.length) continue;
+
+                        const pixel = grayData[idx];
+
+                        if (pixel > 240) whitePixels++;
+                        else if (pixel < 100) darkPixels++;
+                        totalPixels++;
+                    }
+                }
+
+                if (totalPixels === 0) return { isLikelyLabel: false };
+
+                const whiteRatio = whitePixels / totalPixels;
+                const darkRatio = darkPixels / totalPixels;
+
+                // Labels typically have lots of white space with some dark text
+                const isLikelyLabel = whiteRatio > 0.6 && darkRatio > 0.05 && darkRatio < 0.4;
+
+                return { isLikelyLabel };
+            }
+
+            findLargestRectangularRegion(canvas) {
+                // Fallback: try to find the largest reasonable rectangular region
+                const width = canvas.width;
+                const height = canvas.height;
+
+                // Try center regions first
+                const candidates = [
+                    // Center area
+                    {
+                        x: Math.floor(width * 0.1),
+                        y: Math.floor(height * 0.1),
+                        width: Math.floor(width * 0.8),
+                        height: Math.floor(height * 0.8)
+                    },
+                    // Bottom half (common for shipping labels)
+                    {
+                        x: Math.floor(width * 0.05),
+                        y: Math.floor(height * 0.3),
+                        width: Math.floor(width * 0.9),
+                        height: Math.floor(height * 0.65)
+                    },
+                    // Top half
+                    {
+                        x: Math.floor(width * 0.05),
+                        y: Math.floor(height * 0.05),
+                        width: Math.floor(width * 0.9),
+                        height: Math.floor(height * 0.6)
+                    }
+                ];
+
+                for (const candidate of candidates) {
+                    if (this.isValidLabelSize(candidate, width, height)) {
+                        return candidate;
+                    }
+                }
+
+                return null;
+            }
+
+            isValidLabelSize(rect, canvasWidth, canvasHeight) {
+                const area = rect.width * rect.height;
+                const canvasArea = canvasWidth * canvasHeight;
+                const areaRatio = area / canvasArea;
+
+                // Must be between 5% and 85% of total area
+                if (areaRatio < 0.05 || areaRatio > 0.85) return false;
+
+                // Must have reasonable dimensions
+                if (rect.width < 100 || rect.height < 50) return false;
+
+                // Aspect ratio should be reasonable
+                const aspectRatio = rect.width / rect.height;
+                if (aspectRatio < 0.2 || aspectRatio > 5) return false;
+
+                return true;
+            }
+
+            extractLabel(canvas, rect) {
+                console.log('Extracting label from rectangle:', rect);
+
+                const labelCanvas = document.createElement('canvas');
+                const ctx = labelCanvas.getContext('2d');
+
+                // Add minimal padding
+                const padding = 5;
+                const extractX = Math.max(0, rect.x - padding);
+                const extractY = Math.max(0, rect.y - padding);
+                const extractWidth = Math.min(canvas.width - extractX, rect.width + padding * 2);
+                const extractHeight = Math.min(canvas.height - extractY, rect.height + padding * 2);
+
+                labelCanvas.width = extractWidth;
+                labelCanvas.height = extractHeight;
+
+                // Fill with white background
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, extractWidth, extractHeight);
+
+                // Extract with high quality
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(
+                    canvas,
+                    extractX, extractY, extractWidth, extractHeight,
+                    0, 0, extractWidth, extractHeight
+                );
+
+                // Determine if rotation is needed (universal detection rotation logic)
+                const needsRotation = this.determineRotationUniversal(labelCanvas);
+
+                if (needsRotation !== 0) {
+                    console.log('Rotating universal label by', needsRotation, 'degrees');
+                    const rotatedResult = this.rotateCanvas(labelCanvas, needsRotation);
+                    return {
+                        canvas: rotatedResult.canvas,
+                        rotation: needsRotation,
+                        originalRect: rect,
+                        method: rect.method + ' + rotation'
+                    };
+                }
+
+                return {
+                    canvas: labelCanvas,
+                    originalRect: rect,
+                    method: rect.method
+                };
+            }
+
+            determineRotationUniversal(canvas) {
+                // More flexible rotation detection for universal labels
+                const aspectRatio = canvas.width / canvas.height;
+
+                console.log('Universal rotation analysis - aspect ratio:', aspectRatio.toFixed(3));
+
+                // For very wide labels (landscape), check if they should be portrait
+                if (aspectRatio > 1.5) {
+                    console.log('Label is very wide, checking if it should be rotated to portrait');
+                    // Most shipping labels are portrait when properly oriented
+                    // Try 90 degree rotation to make it portrait
+                    return 90;
+                }
+
+                // For very tall labels, check if they should be landscape
+                if (aspectRatio < 0.6) {
+                    console.log('Label is very tall, checking if it should be rotated to landscape');
+                    // Some labels (like UPS) are landscape when properly oriented
+                    return -90;
+                }
+
+                // For moderately wide labels, analyze content to decide
+                if (aspectRatio > 1.1 && aspectRatio <= 1.5) {
+                    console.log('Moderately wide label, analyzing content orientation...');
+
+                    // Sample text orientation by checking if there are more horizontal or vertical patterns
+                    const orientation = this.analyzeContentOrientation(canvas);
+
+                    if (orientation === 'should_rotate') {
+                        console.log('Content analysis suggests 90° rotation');
+                        return 90;
+                    }
+                }
+
+                console.log('Universal detection: no rotation needed');
+                return 0;
+            }
+
+            analyzeContentOrientation(canvas) {
+                // Simple content orientation analysis
+                const ctx = canvas.getContext('2d');
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const grayData = this.convertToGrayscale(imageData);
+
+                let horizontalLines = 0;
+                let verticalLines = 0;
+
+                // Sample every 10th row and column to count line-like patterns
+                const sampleInterval = 10;
+                const threshold = 100;
+
+                // Count horizontal line patterns
+                for (let y = 0; y < canvas.height; y += sampleInterval) {
+                    let darkPixels = 0;
+                    let lightPixels = 0;
+
+                    for (let x = 0; x < canvas.width; x++) {
+                        const idx = y * canvas.width + x;
+                        if (idx < grayData.length) {
+                            if (grayData[idx] < threshold) {
+                                darkPixels++;
+                            } else {
+                                lightPixels++;
+                            }
+                        }
+                    }
+
+                    // If this row has a good mix of dark and light (like text), count it
+                    const totalPixels = darkPixels + lightPixels;
+                    if (totalPixels > 0) {
+                        const darkRatio = darkPixels / totalPixels;
+                        if (darkRatio > 0.1 && darkRatio < 0.6) {
+                            horizontalLines++;
+                        }
+                    }
+                }
+
+                // Count vertical line patterns  
+                for (let x = 0; x < canvas.width; x += sampleInterval) {
+                    let darkPixels = 0;
+                    let lightPixels = 0;
+
+                    for (let y = 0; y < canvas.height; y++) {
+                        const idx = y * canvas.width + x;
+                        if (idx < grayData.length) {
+                            if (grayData[idx] < threshold) {
+                                darkPixels++;
+                            } else {
+                                lightPixels++;
+                            }
+                        }
+                    }
+
+                    // If this column has a good mix of dark and light (like text), count it
+                    const totalPixels = darkPixels + lightPixels;
+                    if (totalPixels > 0) {
+                        const darkRatio = darkPixels / totalPixels;
+                        if (darkRatio > 0.1 && darkRatio < 0.6) {
+                            verticalLines++;
+                        }
+                    }
+                }
+
+                console.log('Content orientation analysis: horizontal patterns =', horizontalLines, ', vertical patterns =', verticalLines);
+
+                // If there are significantly more vertical patterns than horizontal,
+                // the text might be oriented vertically and need rotation
+                if (verticalLines > horizontalLines * 1.3) {
+                    return 'should_rotate';
+                }
+
+                return 'no_rotation';
+            }
+
+            rotateCanvas(canvas, degrees) {
+                const rotatedCanvas = document.createElement('canvas');
+                const ctx = rotatedCanvas.getContext('2d');
+
+                if (degrees === 90 || degrees === 270) {
+                    rotatedCanvas.width = canvas.height;
+                    rotatedCanvas.height = canvas.width;
+                } else {
+                    rotatedCanvas.width = canvas.width;
+                    rotatedCanvas.height = canvas.height;
+                }
+
+                ctx.translate(rotatedCanvas.width / 2, rotatedCanvas.height / 2);
+                ctx.rotate((degrees * Math.PI) / 180);
+
+                // Enable high-quality rendering for rotation
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+
+                return { canvas: rotatedCanvas, rotation: degrees };
+            }
+
+            convertToGrayscale(imageData) {
+                const data = imageData.data;
+                const grayData = new Uint8Array(data.length / 4);
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                    grayData[i / 4] = gray;
+                }
+
+                return grayData;
+            }
+
+            displayOriginalPreview(canvas) {
+                const originalCanvas = document.getElementById('originalCanvas');
+                const ctx = originalCanvas.getContext('2d');
+
+                const devicePixelRatio = window.devicePixelRatio || 1;
+                const maxWidth = 350;
+                const displayScale = Math.min(maxWidth / canvas.width, maxWidth / canvas.height);
+
+                const displayWidth = canvas.width * displayScale;
+                const displayHeight = canvas.height * displayScale;
+
+                originalCanvas.width = displayWidth * devicePixelRatio;
+                originalCanvas.height = displayHeight * devicePixelRatio;
+                originalCanvas.style.width = displayWidth + 'px';
+                originalCanvas.style.height = displayHeight + 'px';
+
+                ctx.scale(devicePixelRatio, devicePixelRatio);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(canvas, 0, 0, displayWidth, displayHeight);
+
+                document.getElementById('originalPreview').style.display = 'block';
+            }
+
+            displayLabelPreview(canvas) {
+                const labelCanvas = document.getElementById('labelCanvas');
+                const ctx = labelCanvas.getContext('2d');
+
+                const devicePixelRatio = window.devicePixelRatio || 1;
+                const maxWidth = 350;
+                const displayScale = Math.min(maxWidth / canvas.width, maxWidth / canvas.height);
+
+                const displayWidth = canvas.width * displayScale;
+                const displayHeight = canvas.height * displayScale;
+
+                labelCanvas.width = displayWidth * devicePixelRatio;
+                labelCanvas.height = displayHeight * devicePixelRatio;
+                labelCanvas.style.width = displayWidth + 'px';
+                labelCanvas.style.height = displayHeight + 'px';
+
+                ctx.scale(devicePixelRatio, devicePixelRatio);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(canvas, 0, 0, displayWidth, displayHeight);
+
+                document.getElementById('labelPreview').style.display = 'block';
+            }
+
+            async downloadExtractedLabel() {
+                if (!this.extractedLabelData) {
+                    this.showStatus('No label data to download.', 'error');
+                    return;
+                }
+
+                console.log('Creating PDF from extracted label...');
+
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const canvas = this.extractedLabelData.canvas;
+
+                    // Determine optimal print size based on aspect ratio
+                    const aspectRatio = canvas.width / canvas.height;
+                    let pdfWidth, pdfHeight;
+
+                    if (aspectRatio > 1.2) {
+                        // Landscape orientation
+                        pdfWidth = 6 * 72; // 6 inches
+                        pdfHeight = 4 * 72; // 4 inches
+                    } else {
+                        // Portrait orientation
+                        pdfWidth = 4 * 72; // 4 inches
+                        pdfHeight = 6 * 72; // 6 inches
+                    }
+
+                    console.log(`Creating PDF: ${pdfWidth / 72}"x${pdfHeight / 72}"`);
+
+                    const imgData = canvas.toDataURL('image/jpeg', 1);
+
+                    const pdf = new jsPDF({
+                        orientation: aspectRatio > 1.2 ? 'landscape' : 'portrait',
+                        unit: 'pt',
+                        format: [pdfWidth, pdfHeight]
+                    });
+
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+                    const filename = `shipping-label-${Date.now()}.pdf`;
+                    pdf.save(filename);
+
+                    this.showStatus('Shipping label PDF downloaded successfully!', 'success');
+
+                } catch (error) {
+                    console.error('Error creating PDF:', error);
+                    this.showStatus('Error creating PDF. Please try again.', 'error');
+                }
+            }
+
+            async printExtractedLabel() {
+                if (!this.extractedLabelData) {
+                    this.showStatus('No label data to print.', 'error');
+                    return;
+                }
+
+                console.log('Preparing label for printing...');
+
+                try {
+                    const canvas = this.extractedLabelData.canvas;
+
+                    // Create print-optimized canvas
+                    const printCanvas = document.createElement('canvas');
+                    const printCtx = printCanvas.getContext('2d');
+
+                    // Determine print dimensions based on aspect ratio
+                    const aspectRatio = canvas.width / canvas.height;
+                    const printDPI = 200;
+                    let printWidth, printHeight, orientation;
+
+                    if (aspectRatio > 1.2) {
+                        printWidth = 6 * printDPI; // 6" wide
+                        printHeight = 4.1 * printDPI; // 4" tall, 4.1 to fix safari multi-page issue
+                        orientation = 'landscape';
+                    } else {
+                        printWidth = 4.1 * printDPI; // 4" wide, 4.1 to fix safari multi-page issue
+                        printHeight = 6 * printDPI; // 6" tall
+                        orientation = 'portrait';
+                    }
+
+                    printCanvas.width = printWidth;
+                    printCanvas.height = printHeight;
+
+                    // Fill with white background
+                    printCtx.fillStyle = 'white';
+                    printCtx.fillRect(0, 0, printWidth, printHeight);
+
+                    // Draw the label
+                    printCtx.drawImage(canvas, 0, 0, printWidth, printHeight);
+
+                    const dataUrl = printCanvas.toDataURL('image/png', 1.0);
+
+                    const printContent = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Print Shipping Label</title>
+                            <style>
+                                @page { 
+                                    // size: ${orientation === 'landscape' ? '6in 4in' : '4in 6in'}; 
+                                    // margin: 0cm !important;
+                                    // padding: 0cm !important; 
+                                }
+                                @media print { 
+                                    body { margin: 0; padding: 0; }
+                                    img { 
+                                        width: ${orientation === 'landscape' ? '6in' : '4in'}; 
+                                        height: ${orientation === 'landscape' ? '4in' : '6in'}; 
+                                        object-fit: fill; 
+                                    }
+                                    .no-print { display: none; }
+                                }
+                                .print-info {
+                                    text-align: center;
+                                    padding: 20px;
+                                    background: #f0f8ff;
+                                    margin-bottom: 20px;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="no-print print-info">
+                                <h3>🖨️ Shipping Label Ready to Print</h3>
+                                <p><strong>Size:</strong> ${orientation === 'landscape' ? '6" × 4"' : '4" × 6"'}</p>
+                                <p><strong>Mode:</strong> ${this.detectionMode === 'amazon' ? '🟠 Amazon Optimized' : '🌐 Universal Detection'}</p>
+                                <p><strong>Method:</strong> ${this.extractedLabelData.method}</p>
+                                <button onclick="window.print()" style="background:#2196F3;color:white;border:none;padding:15px 30px;border-radius:5px;font-size:16px;cursor:pointer;">🖨️ Print Now</button>
+                            </div>
+                            <img src="${dataUrl}" alt="Shipping Label" style="display:block;margin:0 auto;max-width:100%;height:auto;border:0px solid #ccc;">
+                        <\/body>
+                        <\/html>
+                    `;
+
+                    const printWindow = window.open('', '_blank', 'width=600,height=800');
+
+                    if (printWindow) {
+                        printWindow.document.open();
+                        printWindow.document.write(printContent);     
+                        printWindow.document.close();
+                        this.showStatus('Print window opened! Click "Print Now" to print.', 'success');
+                    } else {
+                        // Fallback to download
+                        const link = document.createElement('a');
+                        link.download = `shipping-label-${Date.now()}.png`;
+                        link.href = dataUrl;
+                        link.click();
+                        this.showStatus('High-resolution label image downloaded for printing!', 'success');
+                    }
+
+                } catch (error) {
+                    console.error('Error preparing label for printing:', error);
+                    this.showStatus('Error preparing label for print. Please try downloading instead.', 'error');
+                }
+            }
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Dual-Mode Shipping Label Extractor initialized');
+            const extractor = new DualModeShippingLabelExtractor();
+            window.labelExtractor = extractor;
+        });
+    </script>
+</body>
+
+</html>
